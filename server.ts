@@ -25,17 +25,55 @@ async function startServer() {
     }
 
     try {
+      console.log('Attempting to send booking email for:', name);
+      const emailUser = process.env.EMAIL_USER;
+      const emailPass = process.env.EMAIL_PASS;
+      const receiverEmail = process.env.RECEIVER_EMAIL || emailUser;
+
+      console.log('Email Config Check:');
+      console.log('- EMAIL_USER:', emailUser || 'NOT SET');
+      console.log('- EMAIL_PASS length:', emailPass ? emailPass.length : 'NOT SET');
+      console.log('- EMAIL_SERVICE:', process.env.EMAIL_SERVICE || 'gmail (default)');
+
+      if (!emailUser || !emailPass) {
+        console.error('Email credentials missing in environment variables');
+        return res.status(500).json({ 
+          error: 'Email service is not configured.',
+          details: 'The site owner needs to set EMAIL_USER and EMAIL_PASS in the Secrets panel.'
+        });
+      }
+
+      // Basic validation for Gmail App Password (should be 16 chars)
+      if (process.env.EMAIL_SERVICE === 'gmail' || !process.env.EMAIL_SERVICE) {
+        const cleanPass = emailPass.replace(/\s/g, '');
+        if (cleanPass.length !== 16) {
+          console.warn('Warning: EMAIL_PASS does not appear to be a valid 16-character Gmail App Password.');
+        }
+      }
+
       const transporter = nodemailer.createTransport({
         service: process.env.EMAIL_SERVICE || 'gmail',
         auth: {
-          user: process.env.EMAIL_USER || 'muhammedsinanu8590@gmail.com',
-          pass: process.env.EMAIL_PASS || 'ufqu rqgv byak ydgy',
+          user: emailUser,
+          pass: emailPass,
         },
       });
 
+      // Verify connection configuration
+      try {
+        await transporter.verify();
+        console.log('Nodemailer transporter verified successfully');
+      } catch (verifyError) {
+        console.error('Nodemailer verification failed:', verifyError);
+        return res.status(500).json({ 
+          error: 'Email service configuration error. Please check your EMAIL_PASS in the Secrets panel.',
+          details: verifyError instanceof Error ? verifyError.message : String(verifyError)
+        });
+      }
+
       const mailOptions = {
-        from: process.env.EMAIL_USER || 'muhammedsinanu8590@gmail.com',
-        to: process.env.RECEIVER_EMAIL || 'muhammedsinanu8590@gmail.com',
+        from: emailUser,
+        to: receiverEmail,
         subject: `New Booking Request: ${name}`,
         text: `
           New Booking Request from Green Kerala Website:
@@ -60,11 +98,15 @@ async function startServer() {
         `,
       };
 
-      await transporter.sendMail(mailOptions);
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully:', info.messageId);
       res.status(200).json({ message: 'Booking request sent successfully' });
     } catch (error) {
       console.error('Error sending email:', error);
-      res.status(500).json({ error: 'Failed to send booking request. Please try again later.' });
+      res.status(500).json({ 
+        error: 'Failed to send booking request. Please try again later.',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 

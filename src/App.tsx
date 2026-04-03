@@ -953,11 +953,13 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
         setSubmitStatus({ type: 'success', message: `Booking request sent successfully to ${OWNER_EMAIL}!` });
         setFormData({ name: '', date: '', pickup: '', destination: '' });
       } else {
-        setSubmitStatus({ type: 'error', message: data.error || 'Failed to send request. Please try again.' });
+        const errorMessage = data.error || 'Failed to send request. Please try again.';
+        setSubmitStatus({ type: 'error', message: errorMessage });
+        console.error('Booking error response:', data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error);
-      setSubmitStatus({ type: 'error', message: 'An unexpected error occurred. Please try again later.' });
+      setSubmitStatus({ type: 'error', message: `An unexpected error occurred: ${error.message}. Please try again later.` });
     } finally {
       setIsSubmitting(false);
     }
@@ -1221,8 +1223,15 @@ export default function App() {
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Login failed: This domain is not authorized in the Firebase Console. Please add '" + window.location.hostname + "' to the 'Authorized domains' list in Firebase Authentication settings.");
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("Login failed: The login popup was blocked by your browser. Please allow popups for this site.");
+      } else {
+        alert(`Login failed: ${error.message} (${error.code})`);
+      }
     }
   };
 

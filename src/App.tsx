@@ -342,13 +342,21 @@ const Hero = ({ settings }: { settings: AppSettings }) => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a 
               href="#contact" 
-              className="w-full sm:w-auto px-10 py-4 bg-emerald-900 text-gold-500 border border-gold-500/50 rounded-full font-bold text-lg hover:bg-emerald-800 transition-all shadow-2xl shadow-emerald-900/20 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-emerald-900 text-gold-500 border border-gold-500/50 rounded-full font-bold text-lg hover:bg-emerald-800 transition-all shadow-2xl shadow-emerald-900/20 flex items-center justify-center gap-2"
             >
               Book Now <ChevronRight size={20} />
             </a>
             <a 
+              href={`https://wa.me/91${settings.phoneNumber}?text=Hello%20Green%20Kerala%2C%20I%20would%20like%20to%20book%20a%20luxury%20travel%20vehicle.`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto px-8 py-4 bg-emerald-600 text-white border border-white/10 rounded-full font-bold text-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 shadow-xl"
+            >
+              <MessageCircle size={20} /> WhatsApp
+            </a>
+            <a 
               href={`tel:${settings.phoneNumber}`} 
-              className="w-full sm:w-auto px-10 py-4 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-full font-bold text-lg hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-full font-bold text-lg hover:bg-white/20 transition-all flex items-center justify-center gap-2"
             >
               <Phone size={20} /> Call Now
             </a>

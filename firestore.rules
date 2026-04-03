@@ -1,0 +1,84 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: gallery
+// Document ID: auto-generated
+// Fields:
+//   - url: string (required, format: uri) - The URL of the image.
+//   - caption: string (optional) - A brief description of the image.
+//   - createdAt: timestamp (required) - The timestamp when the image was added.
+//   - ownerId: string (required) - The UID of the owner who added the image.
+//
+// ===============================================================
+
+// Collection: settings
+// Document ID: app
+// Fields:
+//   - phoneNumber: string (required) - The contact phone number.
+//   - instagramId: string (required) - The Instagram handle.
+//   - updatedAt: timestamp (required) - The timestamp when settings were last updated.
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return isAuthenticated() && 
+             (request.auth.token.email == "muhammedsinanu8590@gmail.com" || 
+              request.auth.token.email in get(/databases/$(database)/documents/settings/app).data.owners);
+    }
+
+    function isValidGalleryImage(data) {
+      return data.keys().hasAll(['url', 'createdAt', 'ownerId']) &&
+             data.url is string && data.url.size() > 0 && data.url.size() < 2000 &&
+             data.createdAt is timestamp &&
+             data.ownerId == request.auth.uid &&
+             (!('caption' in data) || (data.caption is string && data.caption.size() < 500));
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['phoneNumber', 'instagramId', 'updatedAt', 'owners']) &&
+             data.phoneNumber is string && data.phoneNumber.size() > 0 && data.phoneNumber.size() < 50 &&
+             data.instagramId is string && data.instagramId.size() > 0 && data.instagramId.size() < 100 &&
+             data.updatedAt is timestamp &&
+             data.owners is list && data.owners.size() < 10;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /gallery/{imageId} {
+      // Anyone can view the gallery
+      allow read: if true;
+      
+      // Only the owner can add images
+      allow create: if isOwner() && isValidGalleryImage(request.resource.data);
+      
+      // Only the owner can delete images
+      allow delete: if isOwner();
+      
+      // Updates are not allowed for now to keep it simple, or only by owner
+      allow update: if isOwner() && isValidGalleryImage(request.resource.data);
+    }
+
+    match /settings/{settingId} {
+      // Anyone can read settings
+      allow read: if true;
+      
+      // Only the owner can update settings
+      allow write: if isOwner() && isValidSettings(request.resource.data);
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "GalleryImage": {
+      "title": "Gallery Image",
+      "description": "An image in the luxury bus gallery.",
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL of the image."
+        },
+        "caption": {
+          "type": "string",
+          "description": "A brief description of the image."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the image was added."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the owner who added the image."
+        },
+        "storagePath": {
+          "type": "string",
+          "description": "The path of the image in Firebase Storage."
+        }
+      },
+      "required": ["url", "createdAt", "ownerId"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global application settings like contact info.",
+      "type": "object",
+      "properties": {
+        "phoneNumber": {
+          "type": "string",
+          "description": "The contact phone number."
+        },
+        "instagramId": {
+          "type": "string",
+          "description": "The Instagram handle."
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of owner email addresses."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when settings were last updated."
+        }
+      },
+      "required": ["phoneNumber", "instagramId", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/gallery": {
+      "schema": "GalleryImage",
+      "description": "Collection of gallery images."
+    },
+    "/settings": {
+      "schema": "AppSettings",
+      "description": "Global application settings."
+    }
+  }
+}

@@ -61,8 +61,9 @@ app.post(['/api/book', '/book'], async (req, res) => {
 
     if (!emailUser || !emailPass) {
       return res.status(500).json({ 
-        error: 'Email service is not configured.',
-        details: 'The site owner needs to set EMAIL_USER and EMAIL_PASS in the Secrets panel.'
+        error: 'Configuration Missing',
+        details: 'EMAIL_USER or EMAIL_PASS environment variables are not set in Vercel.',
+        help: 'Please go to Vercel Project Settings > Environment Variables and add EMAIL_USER and EMAIL_PASS.'
       });
     }
 

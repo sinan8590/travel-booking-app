@@ -14,6 +14,11 @@ const app = express();
 
 app.use(express.json());
 
+// Simple GET route for testing API connectivity
+app.get(['/api', '/api/ping'], (req, res) => {
+  res.json({ status: 'ok', message: 'API is reachable!' });
+});
+
 // API Route for testing email connection
 app.post(['/api/test-email', '/test-email'], async (req, res) => {
     try {

@@ -1085,7 +1085,10 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
       }
     } catch (error: any) {
       console.error('Error submitting form:', error);
-      setSubmitStatus({ type: 'error', message: `An unexpected error occurred: ${error.message}. Please try again later.` });
+      setSubmitStatus({ 
+        type: 'error', 
+        message: `Booking failed: ${error.message}. Please check your Vercel logs and environment variables.` 
+      });
     } finally {
       setIsSubmitting(false);
     }

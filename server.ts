@@ -15,7 +15,7 @@ const app = express();
 app.use(express.json());
 
 // API Route for testing email connection
-app.post('/api/test-email', async (req, res) => {
+app.post(['/api/test-email', '/test-email'], async (req, res) => {
     try {
       const emailUser = process.env.EMAIL_USER;
       const emailPass = process.env.EMAIL_PASS;
@@ -54,7 +54,7 @@ app.post('/api/test-email', async (req, res) => {
   });
 
   // API Route for booking
-  app.post('/api/book', async (req, res) => {
+app.post(['/api/book', '/book'], async (req, res) => {
     const { name, date, pickup, destination } = req.body;
 
     if (!name || !date || !pickup || !destination) {

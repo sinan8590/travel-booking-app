@@ -1055,7 +1055,15 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Non-JSON response received:', text);
+        throw new Error(`Server returned non-JSON response (${response.status})`);
+      }
 
       if (response.ok) {
         setSubmitStatus({ type: 'success', message: `Booking request sent successfully to ${OWNER_EMAIL}!` });

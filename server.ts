@@ -10,11 +10,48 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
 
-  app.use(express.json());
+app.use(express.json());
+
+// API Route for testing email connection
+app.post('/api/test-email', async (req, res) => {
+    try {
+      const emailUser = process.env.EMAIL_USER;
+      const emailPass = process.env.EMAIL_PASS;
+
+      if (!emailUser || !emailPass) {
+        return res.status(400).json({ error: 'Email credentials missing in Secrets panel.' });
+      }
+
+      if (emailUser.toLowerCase() === 'gmail') {
+        return res.status(400).json({
+          error: 'Invalid Email Configuration.',
+          details: 'EMAIL_USER is set to "gmail". It should be your full email address (e.g., muhammedsinanu8590@gmail.com).'
+        });
+      }
+
+      let finalPass = emailPass.replace(/\s/g, '');
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: emailUser,
+          pass: finalPass,
+        },
+      });
+
+      await transporter.verify();
+      res.json({ status: 'ok', message: 'Email connection verified successfully!' });
+    } catch (error) {
+      console.error('Email test failed:', error);
+      res.status(500).json({ 
+        error: 'Email test failed.',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   // API Route for booking
   app.post('/api/book', async (req, res) => {
@@ -43,20 +80,40 @@ async function startServer() {
         });
       }
 
-      // Basic validation for Gmail App Password (should be 16 chars)
+      // Check for common misconfiguration: EMAIL_USER set to "gmail" instead of the actual email
+      if (emailUser.toLowerCase() === 'gmail') {
+        return res.status(500).json({
+          error: 'Invalid Email Configuration.',
+          details: 'EMAIL_USER is set to "gmail". It should be your full email address (e.g., muhammedsinanu8590@gmail.com).',
+          help: 'Please update the EMAIL_USER secret in the Secrets panel to your actual Gmail address.'
+        });
+      }
+
+      // Basic email format validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailUser)) {
+        console.warn(`Warning: EMAIL_USER "${emailUser}" does not look like a valid email address.`);
+      }
+
+      // Clean spaces from Gmail App Password if it's the default service
+      let finalPass = emailPass;
       if (process.env.EMAIL_SERVICE === 'gmail' || !process.env.EMAIL_SERVICE) {
-        const cleanPass = emailPass.replace(/\s/g, '');
-        if (cleanPass.length !== 16) {
-          console.warn('Warning: EMAIL_PASS does not appear to be a valid 16-character Gmail App Password.');
+        finalPass = emailPass.replace(/\s/g, '');
+        if (finalPass.length !== 16) {
+          console.warn(`Warning: EMAIL_PASS length is ${finalPass.length}, but Gmail App Passwords should be 16 characters.`);
         }
       }
 
       const transporter = nodemailer.createTransport({
-        service: process.env.EMAIL_SERVICE || 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // true for 465, false for other ports
         auth: {
           user: emailUser,
-          pass: emailPass,
+          pass: finalPass,
         },
+        debug: true, // show debug output
+        logger: true, // log information in console
       });
 
       // Verify connection configuration
@@ -65,9 +122,17 @@ async function startServer() {
         console.log('Nodemailer transporter verified successfully');
       } catch (verifyError) {
         console.error('Nodemailer verification failed:', verifyError);
+        const errorMsg = verifyError instanceof Error ? verifyError.message : String(verifyError);
+        let helpText = 'Please check your EMAIL_PASS in the Secrets panel.';
+        
+        if (errorMsg.includes('535-5.7.8')) {
+          helpText = 'Google rejected your login. This almost always means you are using your regular password instead of an "App Password". \n\nTo fix this:\n1. Enable 2-Step Verification in your Google Account.\n2. Search for "App Passwords" and generate a new 16-character code.\n3. Use that code in the Secrets panel.\n\nDirect Link: https://myaccount.google.com/apppasswords';
+        }
+
         return res.status(500).json({ 
-          error: 'Email service configuration error. Please check your EMAIL_PASS in the Secrets panel.',
-          details: verifyError instanceof Error ? verifyError.message : String(verifyError)
+          error: 'Email service configuration error.',
+          details: errorMsg,
+          help: helpText
         });
       }
 
@@ -98,36 +163,39 @@ async function startServer() {
         `,
       };
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
-      res.status(200).json({ message: 'Booking request sent successfully' });
-    } catch (error) {
-      console.error('Error sending email:', error);
-      res.status(500).json({ 
-        error: 'Failed to send booking request. Please try again later.',
-        details: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  const info = await transporter.sendMail(mailOptions);
+  console.log('Email sent successfully:', info.messageId);
+  res.status(200).json({ message: 'Booking request sent successfully' });
+} catch (error) {
+  console.error('Error sending email:', error);
+  res.status(500).json({ 
+    error: 'Failed to send booking request. Please try again later.',
+    details: error instanceof Error ? error.message : String(error)
   });
 }
+});
 
-startServer();
+// Vite middleware for development
+if (process.env.NODE_ENV !== 'production') {
+const { createServer: createViteServer } = await import('vite');
+const vite = await createViteServer({
+  server: { middlewareMode: true },
+  appType: 'spa',
+});
+app.use(vite.middlewares);
+} else {
+const distPath = path.join(process.cwd(), 'dist');
+app.use(express.static(distPath));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+}
+
+const PORT = process.env.PORT || 3000;
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+}
+
+export default app;

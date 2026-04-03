@@ -10,6 +10,24 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// Validate Connection to Firestore
+async function testConnection() {
+  try {
+    // Attempt to get a non-existent doc to test connectivity
+    await getDocFromServer(doc(db, '_connection_test_', 'ping'));
+    console.log('Firestore connection verified successfully.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('CRITICAL: Firestore connection failed. The client is offline. Please check your Firebase configuration in firebase-applet-config.json.');
+    } else {
+      // Other errors (like permission denied) are expected if the doc doesn't exist or rules are strict
+      console.log('Firestore connectivity check completed.');
+    }
+  }
+}
+
+testConnection();
+
 export { 
   signInWithPopup, 
   signOut, 

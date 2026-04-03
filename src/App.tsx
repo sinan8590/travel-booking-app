@@ -18,7 +18,8 @@ import {
   Trash2,
   LogIn,
   LogOut,
-  Loader2
+  Loader2,
+  Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -118,6 +119,26 @@ const AdminSettings = ({ settings, onUpdate }: { settings: AppSettings, onUpdate
   const [ownersList, setOwnersList] = useState(settings.owners || []);
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [emailTestStatus, setEmailTestStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleTestEmail = async () => {
+    setIsTestingEmail(true);
+    setEmailTestStatus(null);
+    try {
+      const response = await fetch('/api/test-email', { method: 'POST' });
+      const data = await response.json();
+      if (response.ok) {
+        setEmailTestStatus({ type: 'success', message: data.message });
+      } else {
+        setEmailTestStatus({ type: 'error', message: data.error + (data.details ? `: ${data.details}` : '') });
+      }
+    } catch (error: any) {
+      setEmailTestStatus({ type: 'error', message: `Test failed: ${error.message}` });
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -212,6 +233,27 @@ const AdminSettings = ({ settings, onUpdate }: { settings: AppSettings, onUpdate
         >
           {isSaving ? <Loader2 className="animate-spin" size={20} /> : 'Save Settings'}
         </button>
+
+        <div className="mt-12 pt-8 border-t border-gold-500/10">
+          <h4 className="text-lg font-serif font-bold mb-4 text-gold-500">Email Service Diagnostic</h4>
+          <p className="text-gray-400 text-sm mb-6">
+            Verify if your email credentials (EMAIL_USER and EMAIL_PASS) are correctly configured in the Secrets panel.
+          </p>
+          <div className="flex flex-col sm:flex-row items-start gap-4">
+            <button 
+              onClick={handleTestEmail}
+              disabled={isTestingEmail}
+              className="px-6 py-3 bg-emerald-900 text-gold-500 border border-gold-500/30 rounded-xl font-bold hover:bg-emerald-800 transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              {isTestingEmail ? <Loader2 className="animate-spin" size={20} /> : 'Test Email Connection'}
+            </button>
+            {emailTestStatus && (
+              <div className={`p-3 rounded-xl text-sm font-medium whitespace-pre-line flex-1 ${emailTestStatus.type === 'success' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'}`}>
+                {emailTestStatus.message}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -913,8 +955,38 @@ const ServiceArea = () => {
               <p className="text-emerald-100">Areekode, Malappuram, Kerala</p>
             </div>
           </div>
-          <div className="w-full h-48 bg-black/40 rounded-2xl flex items-center justify-center text-emerald-200 text-sm italic">
-            Interactive Map Placeholder
+          <div className="w-full h-64 bg-black/40 rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            <iframe 
+              width="100%" 
+              height="100%" 
+              frameBorder="0" 
+              style={{ border: 0 }}
+              src="https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=Areekode,Malappuram,Kerala"
+              allowFullScreen
+              title="Green Kerala Base Location"
+              className="grayscale contrast-125 opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-700"
+            ></iframe>
+            {/* Fallback if no API key is provided - using a simpler embed that doesn't strictly require a key for basic view */}
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3914.123456789!2d76.0!3d11.0!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba64f8c8c8c8c8c%3A0x8c8c8c8c8c8c8c8c!2sAreekode%2C%20Kerala!5e0!3m2!1sen!2sin!4v1620000000000!5m2!1sen!2sin"
+              width="100%"
+              height="100%"
+              style={{ border: 0, display: 'none' }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+            {/* Real implementation using standard embed URL which is more reliable without a key */}
+            <iframe
+              src="https://maps.google.com/maps?q=Areekode,Malappuram,Kerala&t=&z=13&ie=UTF8&iwloc=&output=embed"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={true}
+              loading="lazy"
+              title="Green Kerala Location"
+              className="grayscale contrast-125 opacity-80 hover:grayscale-0 hover:opacity-100 transition-all duration-700"
+            ></iframe>
           </div>
         </div>
       </div>
@@ -931,7 +1003,43 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleLocate = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          // Use Nominatim for free reverse geocoding
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`);
+          const data = await response.json();
+          if (data.display_name) {
+            setFormData(prev => ({ ...prev, pickup: data.display_name }));
+          } else {
+            setFormData(prev => ({ ...prev, pickup: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+          }
+        } catch (error) {
+          console.error('Error reverse geocoding:', error);
+          setFormData(prev => ({ ...prev, pickup: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        alert('Unable to retrieve your location. Please check your permissions.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -954,7 +1062,17 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
         setFormData({ name: '', date: '', pickup: '', destination: '' });
       } else {
         const errorMessage = data.error || 'Failed to send request. Please try again.';
-        setSubmitStatus({ type: 'error', message: errorMessage });
+        const helpMessage = data.help ? `\n\nHelp: ${data.help}` : '';
+        
+        // If it's the Gmail 535 error, we can add a more helpful UI element or link
+        if (data.details && data.details.includes('535-5.7.8')) {
+          setSubmitStatus({ 
+            type: 'error', 
+            message: `${errorMessage}${helpMessage}\n\nClick here to generate an App Password: https://myaccount.google.com/apppasswords` 
+          });
+        } else {
+          setSubmitStatus({ type: 'error', message: errorMessage + helpMessage });
+        }
         console.error('Booking error response:', data);
       }
     } catch (error: any) {
@@ -1039,7 +1157,7 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
             <h3 className="text-2xl font-serif font-bold mb-8 text-white">Quick Booking Form</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
               {submitStatus && (
-                <div className={`p-4 rounded-xl text-sm font-medium ${submitStatus.type === 'success' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'}`}>
+                <div className={`p-4 rounded-xl text-sm font-medium whitespace-pre-line ${submitStatus.type === 'success' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' : 'bg-red-900/30 text-red-400 border border-red-500/30'}`}>
                   {submitStatus.message}
                 </div>
               )}
@@ -1067,25 +1185,56 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2 uppercase tracking-widest">Pickup</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500/50 transition-colors"
-                    placeholder="Location"
-                    value={formData.pickup}
-                    onChange={(e) => setFormData({...formData, pickup: e.target.value})}
-                  />
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500/50 transition-colors pr-20"
+                      placeholder="Location"
+                      value={formData.pickup}
+                      onChange={(e) => setFormData({...formData, pickup: e.target.value})}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={handleLocate}
+                        disabled={isLocating}
+                        className={`p-2 text-gray-500 hover:text-gold-500 transition-colors ${isLocating ? 'animate-pulse text-gold-500' : ''}`}
+                        title="Use current location"
+                      >
+                        {isLocating ? <Loader2 size={18} className="animate-spin" /> : <Navigation size={18} />}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.pickup || 'Kerala')}`, '_blank')}
+                        className="p-2 text-gray-500 hover:text-gold-500 transition-colors"
+                        title="Find on Google Maps"
+                      >
+                        <MapPin size={18} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-400 mb-2 uppercase tracking-widest">Destination</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500/50 transition-colors"
-                    placeholder="Location"
-                    value={formData.destination}
-                    onChange={(e) => setFormData({...formData, destination: e.target.value})}
-                  />
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      required
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-gold-500/50 transition-colors pr-10"
+                      placeholder="Location"
+                      value={formData.destination}
+                      onChange={(e) => setFormData({...formData, destination: e.target.value})}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.destination || 'Kerala')}`, '_blank')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gold-500 transition-colors"
+                      title="Find on Google Maps"
+                    >
+                      <MapPin size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
               <button 

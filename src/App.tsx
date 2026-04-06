@@ -1071,15 +1071,16 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
       } else {
         const errorMessage = data.error || 'Failed to send request. Please try again.';
         const helpMessage = data.help ? `\n\nHelp: ${data.help}` : '';
+        const statusCode = ` (Status: ${response.status})`;
         
         // If it's the Gmail 535 error, we can add a more helpful UI element or link
         if (data.details && data.details.includes('535-5.7.8')) {
           setSubmitStatus({ 
             type: 'error', 
-            message: `${errorMessage}${helpMessage}\n\nClick here to generate an App Password: https://myaccount.google.com/apppasswords` 
+            message: `${errorMessage}${statusCode}${helpMessage}\n\nClick here to generate an App Password: https://myaccount.google.com/apppasswords` 
           });
         } else {
-          setSubmitStatus({ type: 'error', message: errorMessage + helpMessage });
+          setSubmitStatus({ type: 'error', message: errorMessage + statusCode + helpMessage });
         }
         console.error('Booking error response:', data);
       }
@@ -1087,7 +1088,7 @@ const Contact = ({ settings }: { settings: AppSettings }) => {
       console.error('Error submitting form:', error);
       setSubmitStatus({ 
         type: 'error', 
-        message: `Booking failed: ${error.message}. Please check your Vercel logs and environment variables.` 
+        message: `Booking failed: ${error.message}. (System v2.0.1)` 
       });
     } finally {
       setIsSubmitting(false);

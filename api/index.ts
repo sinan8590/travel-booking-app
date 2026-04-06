@@ -60,14 +60,20 @@ app.post(['/api/book', '/book'], async (req, res) => {
   }
 
   try {
+    console.log('Attempting to send booking email for:', name);
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASS;
     const receiverEmail = process.env.RECEIVER_EMAIL || emailUser;
 
+    console.log('Email Config Check:');
+    console.log('- EMAIL_USER:', emailUser || 'NOT SET');
+    console.log('- EMAIL_PASS length:', emailPass ? emailPass.length : 'NOT SET');
+
     if (!emailUser || !emailPass) {
+      console.error('Email credentials missing in environment variables');
       return res.status(500).json({ 
-        error: 'Configuration Missing',
-        details: 'EMAIL_USER or EMAIL_PASS environment variables are not set in Vercel.',
+        error: 'Email service is not configured.',
+        details: 'The site owner needs to set EMAIL_USER and EMAIL_PASS in the Vercel Environment Variables.',
         help: 'Please go to Vercel Project Settings > Environment Variables and add EMAIL_USER and EMAIL_PASS.'
       });
     }
@@ -76,11 +82,13 @@ app.post(['/api/book', '/book'], async (req, res) => {
       return res.status(500).json({
         error: 'Invalid Email Configuration.',
         details: 'EMAIL_USER is set to "gmail". It should be your full email address (e.g., muhammedsinanu8590@gmail.com).',
-        help: 'Please update the EMAIL_USER secret in the Secrets panel to your actual Gmail address.'
+        help: 'Please update the EMAIL_USER environment variable to your actual Gmail address.'
       });
     }
 
+    // Clean spaces from Gmail App Password
     let finalPass = emailPass.replace(/\s/g, '');
+    
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
@@ -89,7 +97,29 @@ app.post(['/api/book', '/book'], async (req, res) => {
         user: emailUser,
         pass: finalPass,
       },
+      debug: true,
+      logger: true,
     });
+
+    // Verify connection configuration
+    try {
+      await transporter.verify();
+      console.log('Nodemailer transporter verified successfully');
+    } catch (verifyError) {
+      console.error('Nodemailer verification failed:', verifyError);
+      const errorMsg = verifyError instanceof Error ? verifyError.message : String(verifyError);
+      let helpText = 'Please check your EMAIL_PASS in the Vercel Environment Variables.';
+      
+      if (errorMsg.includes('535-5.7.8')) {
+        helpText = 'Google rejected your login. This almost always means you are using your regular password instead of an "App Password". \n\nTo fix this:\n1. Enable 2-Step Verification in your Google Account.\n2. Search for "App Passwords" and generate a new 16-character code.\n3. Use that code in Vercel.\n\nDirect Link: https://myaccount.google.com/apppasswords';
+      }
+
+      return res.status(500).json({ 
+        error: 'Email service configuration error.',
+        details: errorMsg,
+        help: helpText
+      });
+    }
 
     const mailOptions = {
       from: emailUser,
@@ -118,7 +148,8 @@ app.post(['/api/book', '/book'], async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info.messageId);
     res.status(200).json({ message: 'Booking request sent successfully' });
   } catch (error) {
     console.error('Error sending email:', error);
